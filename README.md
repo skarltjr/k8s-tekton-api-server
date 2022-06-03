@@ -1,4 +1,11 @@
 # k8s-practice-python
+```
+소스코드 클론 -> 이미지 빌드 -> 도커 레지스트리 푸쉬 일련의 pipeline을 
+어떤 k8s 클러스터에든 자동으로 구축해주는 api 서버
+
+유저는 pipeline을 구성하고자하는 k8s클러스터의 config 및 repo주소, 도커 계정정보등을 전달해주면
+원하는 k8s클러스터에 pipeline이 구성된다
+```
 
 ## 1. task
 ```
