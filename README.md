@@ -200,7 +200,7 @@ def createDockerSecret(k8s_client):
     deleteConfig(CONFIG_PATH)
 
 ```
-- <img width="1396" alt="스크린샷 2022-06-02 오후 2 20 33" src="https://media.github.kakaoenterprise.in/user/1988/files/e20a8d4f-dd1f-44dc-89e7-6be942020e73">
+
 
 ### 참고
 - https://github.com/kubernetes-client/python
