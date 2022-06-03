@@ -4,7 +4,7 @@
 어떤 k8s 클러스터에든 자동으로 구축해주는 api 서버
 
 유저는 pipeline을 구성하고자하는 k8s클러스터의 config 및 repo주소, 도커 계정정보등을 전달해주면
-원하는 k8s클러스터에 pipeline이 구성된다
+원하는 k8s클러스터에 tekton pipeline이 구성되어 
 ```
 
 ## 1. task
