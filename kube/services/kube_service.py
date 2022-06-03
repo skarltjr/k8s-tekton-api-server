@@ -1,51 +1,82 @@
-# k8s-practice-python
+from __future__ import annotations
+from kubernetes import client,config
+from kubernetes.client.models import V1PersistentVolumeClaimVolumeSource
+from flask import Flask,request
+from constants.constant import *
+from tekton_pipeline import TektonClient
+from tekton_pipeline import V1beta1Task
+from tekton_pipeline import V1beta1TaskSpec
+from tekton_pipeline import V1beta1Step
+from tekton_pipeline import V1beta1Pipeline
+from tekton_pipeline import V1beta1PipelineSpec
+from tekton_pipeline import V1beta1PipelineTask
+from tekton_pipeline import V1beta1TaskRef
+from tekton_pipeline import V1beta1PipelineRun
+from tekton_pipeline import V1beta1PipelineRunSpec
+from tekton_pipeline import V1beta1PipelineRef
+from tekton_pipeline import V1beta1Param
+from tekton_pipeline import V1beta1WorkspacePipelineTaskBinding
+from tekton_pipeline import V1beta1PipelineWorkspaceDeclaration
+from tekton_pipeline import V1beta1WorkspaceBinding
+import os
+import base64
+import json
 
-## 1. task
-```
-git-clone task를 적용합니다
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.5/git-clone.yaml
+def createDeployments():
+    createConfig(CONFIG_PATH)
+    # create deployment Object
+    container = client.V1Container(
+        name="nginx",
+        image="nginx:latest",
+        ports=[client.V1ContainerPort(container_port=80)],
+        resources=client.V1ResourceRequirements(
+            requests={"cpu":"100m","memory":"200Mi"},
+            limits={"cpu":"500m","memory":"500Mi"}
+        )
+    )
+    # create spec
+    template = client.V1PodTemplateSpec(
+        metadata = client.V1ObjectMeta(labels={"app":"nginx"}),
+        spec=client.V1PodSpec(containers=[container])
+    )
+    #create deployment Spec
+    spec = client.V1DeploymentSpec(
+        replicas=3,template=template,selector={
+            "matchLabels":{"app":"nginx"}
+        }
+    )
 
-buildah task를 적용합니다
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/buildah/0.3/buildah.yaml
-```
+    # create deployment
+    deployment = client.V1Deployment(
+        api_version="apps/v1",
+        kind="Deployment",
+        metadata=client.V1ObjectMeta(name=DEPLOYMENT_NAME),
+        spec=spec
+    )
 
-## 2. pv,pvc
-- pv,pvc 생성 후 적용합니다.
-- 해당 볼륨은 pipeline에서 workspace로 사용합니다.
-- pv
-```
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: standard2
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local-path
-  capacity:
-    storage: 5Gi
-  hostPath:
-    path: /data
-```
-- pvc
-```
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: testpvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 5G
-```
-## 3. pipeline
-- 유저에게 config, git repo 주소, 도커 레지스트리 주소 및 계정정보를 전달받습니다
-- 이를 활용하여 pipeline을 구성합니다
-- task간 볼륨을 공유하여 이전 작업 내용을 활용합니다
-```
+    # deploy
+    config_file = CONFIG_PATH
+    config.load_kube_config(config_file=config_file)
+    Api_Instance = client.AppsV1Api()
+    Api_Instance.create_namespaced_deployment(
+        body=deployment,namespace="default"
+    )
+
+    deleteConfig(CONFIG_PATH)
+    
+
+def createConfig(configPath):
+    configText = request.form['config']
+    configFile = open(configPath,"w")
+    configFile.write(configText)
+    configFile.close()
+
+def deleteConfig(configPath):
+    if os.path.isfile(configPath):
+        os.remove(configPath)
+
+
+
 #
 # tekton pipeline services
 #
@@ -108,11 +139,35 @@ def createTektonPipeline():
 
     # Create the pipeline
     tekton_client.create(tekton=pipeline, namespace='default')
-```
 
-## 3-1. secret & service account 생성
-- 도커레지스트리 접근을 위한 sa 생성을 위해 계정정보를 전달받은 후 secret생성 -> sa 생성 -> pipelineRun에서 활용
-```
+    # define pipelineRun
+    pipelinerun = V1beta1PipelineRun(
+    api_version='tekton.dev/v1beta1',
+    kind='PipelineRun',
+    metadata=client.V1ObjectMeta(name='sample-pipelinerun'),
+    spec=V1beta1PipelineRunSpec(
+        service_account_name = 'my-docker-sa',
+        pipeline_ref=V1beta1PipelineRef(
+            name='sample-pipeline'),
+        workspaces = [
+            V1beta1WorkspaceBinding(
+                name = 'pipeline-shared-data',
+                persistent_volume_claim = V1PersistentVolumeClaimVolumeSource(
+                    claim_name = 'testpvc'
+                )
+            )
+        ]
+    ))
+
+
+    tekton_client.create(tekton=pipelinerun, namespace='default')
+
+
+    deleteConfig(CONFIG_PATH)
+
+
+
+
 def createDockerSecret(k8s_client): 
     # create docker secret
     username = request.form['docker-username']
@@ -145,11 +200,8 @@ def createDockerSecret(k8s_client):
         type="kubernetes.io/dockerconfigjson",
     )
     k8s_client.create_namespaced_secret("default", body=secret)
-    
-    
-    
-    
- def createDockerServiceAccount(k8s_client):
+
+def createDockerServiceAccount(k8s_client):
     sa = {
         'apiVersion':'v1',
         'kind':'ServiceAccount',
@@ -161,41 +213,3 @@ def createDockerSecret(k8s_client):
         }]
     }
     k8s_client.create_namespaced_service_account(namespace='default', body=sa)
-
-```
-
-## 5. pipeline 실행을 위한 pipelineRun을 구성합니다
-- 도커 레지스트리에 접근을 위해 미리 만들어둔 service account를 활용합니다
-```
-    # define pipelineRun
-    pipelinerun = V1beta1PipelineRun(
-    api_version='tekton.dev/v1beta1',
-    kind='PipelineRun',
-    metadata=client.V1ObjectMeta(name='sample-pipelinerun'),
-    spec=V1beta1PipelineRunSpec(
-        service_account_name = 'my-docker-sa',
-        pipeline_ref=V1beta1PipelineRef(
-            name='sample-pipeline'),
-        workspaces = [
-            V1beta1WorkspaceBinding(
-                name = 'pipeline-shared-data',
-                persistent_volume_claim = V1PersistentVolumeClaimVolumeSource(
-                    claim_name = 'testpvc'
-                )
-            )
-        ]
-    ))
-
-
-    tekton_client.create(tekton=pipelinerun, namespace='default')
-
-
-    deleteConfig(CONFIG_PATH)
-
-```
-- <img width="1396" alt="스크린샷 2022-06-02 오후 2 20 33" src="https://media.github.kakaoenterprise.in/user/1988/files/e20a8d4f-dd1f-44dc-89e7-6be942020e73">
-
-### 참고
-- https://github.com/kubernetes-client/python
-- https://github.com/tektoncd/experimental
-
