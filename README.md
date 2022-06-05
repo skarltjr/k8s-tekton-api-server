@@ -7,6 +7,15 @@
 원하는 k8s클러스터에 tekton pipeline이 구성되어 
 ```
 
+# Issue
+- https://github.com/tektoncd/experimental/issues/885
+```
+처음 활용해보는 오픈소스라 예제를 참고해야했다
+그런데 예제가 잘못된 부분도 있고 변경된 파라미터도 있었다
+마침 tekton client도 내부적으로 python k8s client를 활용하고 있어서 두 오픈소스의 내부 코드를 보면서 이에 맞춰 활용활 수 있었고 이슈를 남겼다.
+```
+
+
 ## 1. task
 ```
 git-clone task를 적용합니다
