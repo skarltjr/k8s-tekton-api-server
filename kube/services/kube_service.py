@@ -23,7 +23,7 @@ import base64
 import json
 
 def createDeployments():
-    createConfig(CONFIG_PATH)
+    #createConfig(CONFIG_PATH)
     # create deployment Object
     container = client.V1Container(
         name="nginx",
@@ -55,14 +55,14 @@ def createDeployments():
     )
 
     # deploy
-    config_file = CONFIG_PATH
+    config_file = CONFIG_PATH2
     config.load_kube_config(config_file=config_file)
     Api_Instance = client.AppsV1Api()
     Api_Instance.create_namespaced_deployment(
         body=deployment,namespace="default"
     )
 
-    deleteConfig(CONFIG_PATH)
+    #deleteConfig(CONFIG_PATH)
     
 
 def createConfig(configPath):
@@ -99,7 +99,6 @@ def createTektonPipeline():
     
     # define a task
     # git-clone task는 미리 클러스터에 올리기
-
     # Define the pipeline
     pipeline = V1beta1Pipeline(
         api_version='tekton.dev/v1beta1',
@@ -116,7 +115,9 @@ def createTektonPipeline():
                     params = [
                         V1beta1Param(name = 'url',value = gitAddress),
                         V1beta1Param(name = 'revision',value = 'main'),
-                        V1beta1Param(name = 'deleteExisting',value = 'true')
+                        V1beta1Param(name = 'deleteExisting',value = 'true'),
+                        V1beta1Param(name = 'httpProxy',value = 'http://sec-proxy.k9e.io:3128'),
+                        V1beta1Param(name = 'httpsProxy',value = 'http://sec-proxy.k9e.io:3128')
                     ],
                     workspaces=[
                         V1beta1WorkspacePipelineTaskBinding(name = 'output', workspace = 'pipeline-shared-data')
@@ -127,6 +128,9 @@ def createTektonPipeline():
                     run_after = ['git-clone'],
                     task_ref = V1beta1TaskRef(name ='buildah'),
                     params = [
+                        V1beta1Param(name = 'httpProxy',value = 'http://sec-proxy.k9e.io:3128'),
+                        V1beta1Param(name = 'httpsProxy',value = 'http://sec-proxy.k9e.io:3128'),
+                        V1beta1Param(name = 'noProxy',value = 'localhost, 127.0.0.1, 127.0.0.0/8, 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, .k9e.io, .kakaoi.com, .kakaoicdn.net, .k9etool.io, .k5d.io, .kakaoenterprise.com, .kakaoicloud.com, .kakaoi.io, .kakaoi.ai, .kakaoicloud.in, github.kakaoenterprise.in, mdock.daumkakao.io, idock.daumkakao.io'),
                         V1beta1Param(name = 'IMAGE',value = f'{dockerRegistry}:$(tasks.git-clone.results.commit)')
                     ],
                     workspaces=[
@@ -161,7 +165,6 @@ def createTektonPipeline():
 
 
     tekton_client.create(tekton=pipelinerun, namespace='default')
-
 
     deleteConfig(CONFIG_PATH)
 

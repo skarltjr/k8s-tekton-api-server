@@ -1,7 +1,7 @@
 from crypt import methods
 from ..services.kube_service import createDeployments,createTektonPipeline
 from flask import jsonify,Blueprint
-
+import base64
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
 config_bp = Blueprint('config',__name__,url_prefix='/config')
@@ -21,4 +21,11 @@ def createPipelineApi():
     createTektonPipeline()
     return jsonify({
         "message" : "test test"
+    })
+
+
+@tekton_bp.route("/test",methods=['GET'])
+def hello():
+        return jsonify({
+        "message" : "oh!!"
     })
