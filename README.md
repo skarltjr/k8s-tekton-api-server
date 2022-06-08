@@ -18,6 +18,9 @@
 
 ## 1. task
 ```
+# Tekton pipeline v0.23.0 설치
+kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.23.0/release.yaml
+
 git-clone task를 적용합니다
 kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.5/git-clone.yaml
 
