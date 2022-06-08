@@ -7,14 +7,35 @@
 원하는 k8s클러스터에 tekton pipeline이 구성되어 
 ```
 
-# Issue
+# Issue 1
 - https://github.com/tektoncd/experimental/issues/885
 ```
 처음 활용해보는 오픈소스라 예제를 참고해야했다
 그런데 예제가 잘못된 부분도 있고 변경된 파라미터도 있었다
 마침 tekton client도 내부적으로 python k8s client를 활용하고 있어서 두 오픈소스의 내부 코드를 보면서 이에 맞춰 활용활 수 있었고 이슈를 남겼다.
 ```
+# Issue 2
+- 사내망은 제한적인 네트워크
+```
+사내망은 제한적인 네트워크라 문제가 많았다.
 
+1. 문제 상황 1 : k8s api 활용 막힘 
+우선 사내 쿠버네티스 엔진을 사용하여 올린 애플리케이션에서 외부 클러스터의 config를 전달받더라도
+외부 클러스터내에 pipeline을 배포하지못했다.
+즉 k8s api에 접근하지 못했다.
+
+해결 : 쿠버네티스는 모든 요청이 api server를 통해 전달된다. 그리고 지금 이 api서버에 접근하지못했다.
+이유는 바로 모든 쿠버네티스 api server는 6443포트를 사용하고 사내망에선 따로 요청을 하지 않으면 뚫려있지않다. 
+뚫어서 해결했다.
+
+2. 문제 상황 2.  사내망에서 외부로 요청을 내보내기위해선 프록시를 함께 태워야했다.
+결국 깃허브, 도커허브는 외부 시스템이고 이 외부 시스템 접근을 위해서 위를 수행해야했다.
+
+git-clone, dockerhub push task를 수행하는 pipeline 생성 k8s api요청에 파라미터를 추가했다
+V1beta1Param(name = 'httpProxy',value = 'http://xxxxx'),
+V1beta1Param(name = 'httpsProxy',value = 'http://xxxx')
+
+```
 
 ## 1. task
 ```
